@@ -61,8 +61,7 @@ fn main() {
         let encoded_value = &args[2];
         let decoded_value = decode_bencoded_value(encoded_value);
         println!("{}", decoded_value);
-    }
-    if command == "info" {
+    } else if command == "info" {
         let content = fs::read(&args[2]).expect("file not found");
         let torrent_file: TorrentFile = serde_bencode::from_bytes(&content).unwrap();
         println!("Tracker URL: {}", torrent_file.announce);
