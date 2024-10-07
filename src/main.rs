@@ -1,4 +1,23 @@
+use serde::{Deserialize, Serialize};
+use serde_bencode::value::Value;
+use std::collections::HashMap;
 use std::env;
+use std::fs;
+
+#[derive(Debug, Serialize, Deserialize)]
+struct TorrentFile {
+    pub announce: String,
+    pub info: HashMap<String, Value>,
+}
+
+impl TorrentFile {
+    fn length(&self) -> Option<u64> {
+        match self.info.get("length") {
+            Some(Value::Int(length)) => Some(*length as u64),
+            _ => None,
+        }
+    }
+}
 
 fn bencode_to_json(bencode: &serde_bencode::value::Value) -> serde_json::Value {
     match bencode {
@@ -41,7 +60,13 @@ fn main() {
     if command == "decode" {
         let encoded_value = &args[2];
         let decoded_value = decode_bencoded_value(encoded_value);
-        println!("{}", decoded_value.to_string());
+        println!("{}", decoded_value);
+    }
+    if command == "info" {
+        let content = fs::read(&args[2]).expect("file not found");
+        let torrent_file: TorrentFile = serde_bencode::from_bytes(&content).unwrap();
+        println!("Tracker URL: {}", torrent_file.announce);
+        println!("Length: {}", torrent_file.length().unwrap());
     } else {
         println!("unknown command: {}", args[1])
     }
