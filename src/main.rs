@@ -1,22 +1,36 @@
-use serde_json;
 use std::env;
 
-// Available if you need it!
-// use serde_bencode
+fn bencode_to_json(bencode: &serde_bencode::value::Value) -> serde_json::Value {
+    match bencode {
+        serde_bencode::value::Value::Bytes(s) => {
+            serde_json::Value::String(String::from_utf8_lossy(s).to_string())
+        }
+        serde_bencode::value::Value::Int(i) => {
+            serde_json::Value::Number(serde_json::Number::from(*i))
+        }
+        serde_bencode::value::Value::List(l) => {
+            let mut json_list = Vec::new();
+            for item in l {
+                json_list.push(bencode_to_json(item));
+            }
+            serde_json::Value::Array(json_list)
+        }
+        serde_bencode::value::Value::Dict(d) => {
+            let mut json_dict = serde_json::Map::new();
+            for (key, value) in d {
+                let new_key = String::from_utf8_lossy(key).to_string();
+                json_dict.insert(new_key, bencode_to_json(value));
+            }
+            serde_json::Value::Object(json_dict)
+        }
+    }
+}
 
 #[allow(dead_code)]
 fn decode_bencoded_value(encoded_value: &str) -> serde_json::Value {
-    // If encoded_value starts with a digit, it's a number
-    if encoded_value.chars().next().unwrap().is_digit(10) {
-        // Example: "5:hello" -> "hello"
-        let colon_index = encoded_value.find(':').unwrap();
-        let number_string = &encoded_value[..colon_index];
-        let number = number_string.parse::<i64>().unwrap();
-        let string = &encoded_value[colon_index + 1..colon_index + 1 + number as usize];
-        return serde_json::Value::String(string.to_string());
-    } else {
-        panic!("Unhandled encoded value: {}", encoded_value)
-    }
+    let bencode_value: serde_bencode::value::Value =
+        serde_bencode::from_str(encoded_value).unwrap();
+    bencode_to_json(&bencode_value)
 }
 
 // Usage: your_bittorrent.sh decode "<encoded_value>"
