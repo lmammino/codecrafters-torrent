@@ -26,6 +26,30 @@ impl TorrentFile {
         let hash = hasher.finalize();
         hash.to_vec()
     }
+
+    fn piece_length(&self) -> Option<u64> {
+        match self.info.get("piece length") {
+            Some(Value::Int(piece_length)) => Some(*piece_length as u64),
+            _ => None,
+        }
+    }
+
+    fn pieces_hash(&self) -> Option<Vec<Vec<u8>>> {
+        let pieces = self.info.get("pieces").unwrap();
+        match pieces {
+            Value::Bytes(pieces_bytes) => {
+                let mut pieces_hash = Vec::new();
+                let mut i = 0;
+                while i < pieces_bytes.len() {
+                    let piece_hash = &pieces_bytes[i..i + 20];
+                    pieces_hash.push(piece_hash.to_vec());
+                    i += 20;
+                }
+                Some(pieces_hash)
+            }
+            _ => None,
+        }
+    }
 }
 
 fn bytes_to_hex_string(bytes: &[u8]) -> String {
@@ -38,20 +62,16 @@ fn bytes_to_hex_string(bytes: &[u8]) -> String {
 
 fn bencode_to_json(bencode: &serde_bencode::value::Value) -> serde_json::Value {
     match bencode {
-        serde_bencode::value::Value::Bytes(s) => {
-            serde_json::Value::String(String::from_utf8_lossy(s).to_string())
-        }
-        serde_bencode::value::Value::Int(i) => {
-            serde_json::Value::Number(serde_json::Number::from(*i))
-        }
-        serde_bencode::value::Value::List(l) => {
+        Value::Bytes(s) => serde_json::Value::String(String::from_utf8_lossy(s).to_string()),
+        Value::Int(i) => serde_json::Value::Number(serde_json::Number::from(*i)),
+        Value::List(l) => {
             let mut json_list = Vec::new();
             for item in l {
                 json_list.push(bencode_to_json(item));
             }
             serde_json::Value::Array(json_list)
         }
-        serde_bencode::value::Value::Dict(d) => {
+        Value::Dict(d) => {
             let mut json_dict = serde_json::Map::new();
             for (key, value) in d {
                 let new_key = String::from_utf8_lossy(key).to_string();
@@ -64,8 +84,7 @@ fn bencode_to_json(bencode: &serde_bencode::value::Value) -> serde_json::Value {
 
 #[allow(dead_code)]
 fn decode_bencoded_value(encoded_value: &str) -> serde_json::Value {
-    let bencode_value: serde_bencode::value::Value =
-        serde_bencode::from_str(encoded_value).unwrap();
+    let bencode_value: Value = serde_bencode::from_str(encoded_value).unwrap();
     bencode_to_json(&bencode_value)
 }
 
@@ -87,6 +106,12 @@ fn main() {
             "Info Hash: {}",
             bytes_to_hex_string(&torrent_file.info_hash())
         );
+        println!("Piece Length: {}", torrent_file.piece_length().unwrap());
+        let pieces_hash = torrent_file.pieces_hash().unwrap();
+        println!("Pieces Hash:");
+        for piece_hash in pieces_hash {
+            println!("{}", bytes_to_hex_string(&piece_hash));
+        }
     } else {
         println!("unknown command: {}", args[1])
     }
