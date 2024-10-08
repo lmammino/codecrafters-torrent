@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_bencode::value::Value;
+use sha1::{Digest, Sha1};
 use std::collections::HashMap;
 use std::env;
 use std::fs;
@@ -17,6 +18,22 @@ impl TorrentFile {
             _ => None,
         }
     }
+
+    fn info_hash(&self) -> Vec<u8> {
+        let info = serde_bencode::to_bytes(&self.info).unwrap();
+        let mut hasher = Sha1::new();
+        hasher.update(&info);
+        let hash = hasher.finalize();
+        hash.to_vec()
+    }
+}
+
+fn bytes_to_hex_string(bytes: &[u8]) -> String {
+    let mut hex_string = String::new();
+    for byte in bytes {
+        hex_string.push_str(&format!("{:x}", byte));
+    }
+    hex_string
 }
 
 fn bencode_to_json(bencode: &serde_bencode::value::Value) -> serde_json::Value {
@@ -66,6 +83,10 @@ fn main() {
         let torrent_file: TorrentFile = serde_bencode::from_bytes(&content).unwrap();
         println!("Tracker URL: {}", torrent_file.announce);
         println!("Length: {}", torrent_file.length().unwrap());
+        println!(
+            "Info Hash: {}",
+            bytes_to_hex_string(&torrent_file.info_hash())
+        );
     } else {
         println!("unknown command: {}", args[1])
     }
