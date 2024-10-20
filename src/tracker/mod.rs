@@ -2,8 +2,8 @@ use crate::{client::Client, torrent_file::TorrentFile};
 use info::Info;
 use progress::Progress;
 use std::borrow::Cow;
-mod info;
-mod peer;
+pub mod info;
+pub mod peer;
 pub mod progress;
 
 pub async fn get_tracker_info(

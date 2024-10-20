@@ -1,15 +1,25 @@
-use std::{net::Ipv4Addr, ops::Deref};
-
 use serde::{de::Visitor, Deserialize, Deserializer};
+use std::{net::Ipv4Addr, ops::Deref, str::FromStr};
 
-#[derive(Debug, Clone)]
-pub struct Peers(Vec<Peer>);
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Peer {
     pub ip: Ipv4Addr,
     pub port: u16,
 }
+
+impl FromStr for Peer {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (ip, port) = s.split_once(':').ok_or("Invalid peer format".to_string())?;
+        let ip = Ipv4Addr::from_str(ip).map_err(|_| "Invalid IP address".to_string())?;
+        let port = port.parse().map_err(|_| "Invalid port".to_string())?;
+        Ok(Peer { ip, port })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Peers(Vec<Peer>);
 
 impl Deref for Peers {
     type Target = Vec<Peer>;
